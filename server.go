@@ -14,46 +14,35 @@ type Message struct {
 	Content string `json:"content"`
 	Role    string `json:"role"`
 }
+
+type Delta struct {
+	Role    string `json:"role,omitempty"`
+	Content string `json:"content,omitempty"`
+}
+
 type Choice struct {
 	FinishReason string  `json:"finish_reason"`
 	Index        int     `json:"index"`
-	Message      Message `json:"message"`
+	Message      *Message `json:"message,omitempty"`
+	Delta        *Delta  `json:"delta,omitempty"`
 	// Logprobs interface{} `json:"logprobs"`
 }
+
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 type Response struct {
-	ID      string   `json:"id"`
-	Choices []Choice `json:"choices"`
-	Created int64    `json:"created"`
-	Model   string   `json:"model"`
-	Object  string   `json:"object"`
-	SystemFingerprint  interface{}   `json:"system_fingerprint"`	
-	Usage   struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-			TotalTokens      int `json:"total_tokens"`
-	} `json:"usage"`
+	ID                string   `json:"id"`
+	Choices           []Choice `json:"choices"`
+	Created           int64    `json:"created"`
+	Model             string   `json:"model"`
+	Object            string   `json:"object"`
+	SystemFingerprint string   `json:"system_fingerprint,omitempty"`
+	Usage             Usage    `json:"usage"`
 }
-
-// Define additional structs to handle streaming response format
-type Delta struct {
-	Role        string `json:"role,omitempty"`
-	Content     string `json:"content,omitempty"`
-}
-type StreamedChoice struct {
-	Index         int    `json:"index"`
-	Delta         Delta  `json:"delta"`
-	// Logprobs      interface{} `json:"logprobs"`
-	FinishReason  string `json:"finish_reason,omitempty"`
-}
-type StreamedResponse struct {
-	ID                string           `json:"id"`
-	Object            string           `json:"object"`
-	Created           int64            `json:"created"`
-	Model             string           `json:"model"`
-	SystemFingerprint string           `json:"system_fingerprint,omitempty"`
-	Choices           []StreamedChoice `json:"choices"`
-}
-
 
 // GenerateRandomID generates a random ID similar to the given format
 func GenerateRandomID() string {
@@ -107,81 +96,77 @@ func chatCompletionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
-func streamResponse(w http.ResponseWriter, requestBody map[string]interface{}) {
-	// Simulate a streaming response
-	id := GenerateRandomID()
-	streamedResponse := StreamedResponse{
-			ID:                id,
-			Object:            "chat.completion.chunk",
-			Created:           time.Now().Unix(),
-			Model:             "gpt-3.5-turbo", // Default or extracted from requestBody
-			SystemFingerprint: "fp_44709d6fcb", // Example value
-			Choices: []StreamedChoice{
-					{
-							Index: 0,
-							Delta: Delta{
-									Content: "Blank response from OpenAI API emulator.",
-							},
-							FinishReason: "STOP",
-					},
-			},
-	}
-
-	// Set Content-Type for streaming
-	w.Header().Set("Content-Type", "application/json")
-	// Encode and send the streamed response
-	if err := json.NewEncoder(w).Encode(streamedResponse); err != nil {
-			log.Printf("Error streaming response: %v", err)
-			http.Error(w, "Error streaming response", http.StatusInternalServerError)
-	}
-}
-
-func regularResponse(w http.ResponseWriter, requestBody map[string]interface{}) {
+func prepareResponse(requestBody map[string]interface{}) Response {
 	// Prepare the response structure
 	response := Response{
-			ID:      GenerateRandomID(),
-			Choices: []Choice{
-					{
-							FinishReason: "STOP",
-							Index:        0,
-							Message: Message{
-									Content: "Blank response from OpenAI API emulator.",
-									Role:    "assistant",
-							},
-					},
-			},
-			Created: time.Now().Unix(),
-			Model:   "gpt-3.5-turbo", // Default model value, could be overridden below
-			Object:  "chat.completion",
-			Usage: struct {
-					PromptTokens     int `json:"prompt_tokens"`
-					CompletionTokens int `json:"completion_tokens"`
-					TotalTokens      int `json:"total_tokens"`
-			}{
-					PromptTokens:     57, // Default prompt tokens, could be recalculated below
-					CompletionTokens: 8,  // Fixed completion tokens
-					TotalTokens:      65, // Default total tokens, could be recalculated below
-			},
+		ID:      GenerateRandomID(),
+		Created: time.Now().Unix(),
+		Model:   "gpt-3.5-turbo", // Default model value, could be overridden below
+		Object:  "chat.completion",
+		Usage: Usage{
+			PromptTokens:     57, // Default prompt tokens, could be recalculated below
+			CompletionTokens: 8,  // Fixed completion tokens
+			TotalTokens:      65, // Default total tokens, could be recalculated below
+		},
 	}
 
 	// Extract and set model from request if present
 	if model, ok := requestBody["model"].(string); ok {
-			response.Model = model
+		response.Model = model
 	}
 
 	// Calculate prompt tokens if messages are present
 	if messages, ok := requestBody["messages"].([]interface{}); ok {
-			mappedMessages := make([]map[string]interface{}, len(messages))
-			for i, msg := range messages {
-					if msgMap, ok := msg.(map[string]interface{}); ok {
-							mappedMessages[i] = msgMap
-					}
+		mappedMessages := make([]map[string]interface{}, len(messages))
+		for i, msg := range messages {
+			if msgMap, ok := msg.(map[string]interface{}); ok {
+				mappedMessages[i] = msgMap
 			}
-			promptTokens := CalculatePromptTokens(mappedMessages)
-			response.Usage.PromptTokens = promptTokens
-			response.Usage.TotalTokens = promptTokens + response.Usage.CompletionTokens
+		}
+		promptTokens := CalculatePromptTokens(mappedMessages)
+		response.Usage.PromptTokens = promptTokens
+		response.Usage.TotalTokens = promptTokens + response.Usage.CompletionTokens
 	}
+
+	return response
+}
+
+func streamResponse(w http.ResponseWriter, requestBody map[string]interface{}) {
+	response := prepareResponse(requestBody)
+	response.Choices = []Choice{
+		{
+			Index: 0,
+			Delta: &Delta{
+				Content: "Blank response from OpenAI API emulator.",
+			},
+			FinishReason: "STOP",
+		},
+	}
+	response.Object = "chat.completion.chunk"
+	response.SystemFingerprint = ""
+
+	// Set Content-Type for streaming
+	w.Header().Set("Content-Type", "application/json")
+	// Encode and send the streamed response
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error streaming response: %v", err)
+		http.Error(w, "Error streaming response", http.StatusInternalServerError)
+	}
+}
+
+func regularResponse(w http.ResponseWriter, requestBody map[string]interface{}) {
+	response := prepareResponse(requestBody)
+	response.Choices = []Choice{
+		{
+			FinishReason: "STOP",
+			Index:        0,
+			Message: &Message{
+				Content: "Blank response from OpenAI API emulator.",
+				Role:    "assistant",
+			},
+		},
+	}
+	response.SystemFingerprint = ""
 
 	// Set Content-Type and return the response
 	w.Header().Set("Content-Type", "application/json")
