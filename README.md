@@ -1,6 +1,6 @@
 # OpenAI API Emulator
 
-This repository contains a simple server written in Go that emulates the behavior of the OpenAI API. It's a great tool for testing your applications that interact with the OpenAI API without making actual API calls.
+This repository contains a simple server written in Go that emulates the behaviour of the OpenAI API. It's a great tool for testing your applications that interact with the OpenAI API without making actual API calls.
 
 ## Description
 
