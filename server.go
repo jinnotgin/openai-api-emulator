@@ -21,10 +21,10 @@ type Delta struct {
 }
 
 type Choice struct {
-	FinishReason string  `json:"finish_reason"`
-	Index        int     `json:"index"`
+	FinishReason string   `json:"finish_reason"`
+	Index        int      `json:"index"`
 	Message      *Message `json:"message,omitempty"`
-	Delta        *Delta  `json:"delta,omitempty"`
+	Delta        *Delta   `json:"delta,omitempty"`
 	// Logprobs interface{} `json:"logprobs"`
 }
 
@@ -76,11 +76,11 @@ func chatCompletionsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check if the request body is not empty
 	if r.Body != nil && r.ContentLength > 0 {
-			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-					log.Printf("Error decoding request body: %v", err)
-					// You might choose not to return an error here if the body is optional
-					// and just proceed with default values instead.
-			}
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			log.Printf("Error decoding request body: %v", err)
+			// You might choose not to return an error here if the body is optional
+			// and just proceed with default values instead.
+		}
 	}
 
 	if DEBUG {
@@ -88,11 +88,11 @@ func chatCompletionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if stream, ok := requestBody["stream"].(bool); ok && stream {
-			// Handle streaming response
-			streamResponse(w, requestBody)
+		// Handle streaming response
+		streamResponse(w, requestBody)
 	} else {
-			// Handle regular response
-			regularResponse(w, requestBody)
+		// Handle regular response
+		regularResponse(w, requestBody)
 	}
 }
 
