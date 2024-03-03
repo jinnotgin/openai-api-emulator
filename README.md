@@ -55,10 +55,6 @@ The response from the server has the following structure (assuming a regular non
 
 Please note that the server always returns a predefined message in the response and the message `content` field does not depend on the input message.
 
-## Contributions
-
-Contributions are welcome! Feel free to submit a pull request.
-
 ## License
 
 This project is licensed under the MIT License.
